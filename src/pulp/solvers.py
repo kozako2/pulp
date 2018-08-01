@@ -373,17 +373,17 @@ class GLPK_CMD(LpSolver_CMD):
         self.solution_time = clock()
         if not self.msg:
             proc[0] = self.path
-            pipe = open(os.devnull, 'w')
-            if operating_system == 'win':
-                # Prevent flashing windows if used from a GUI application
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                rc = subprocess.call(proc, stdout = pipe, stderr = pipe,
-                                     startupinfo = startupinfo)
-            else:
-                rc = subprocess.call(proc, stdout = pipe, stderr = pipe)
-            if rc:
-                raise PulpSolverError("PuLP: Error while trying to execute "+self.path)
+            with open(os.devnull, 'w') as pipe:
+                if operating_system == 'win':
+                    # Prevent flashing windows if used from a GUI application
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    rc = subprocess.call(proc, stdout = pipe, stderr = pipe,
+                                         startupinfo = startupinfo)
+                else:
+                    rc = subprocess.call(proc, stdout = pipe, stderr = pipe)
+                if rc:
+                    raise PulpSolverError("PuLP: Error while trying to execute "+self.path)
         else:
             if os.name != 'nt':
                 rc = os.spawnvp(os.P_WAIT, self.path, proc)
@@ -1219,7 +1219,7 @@ class XPRESS(LpSolver_CMD):
         Initializes the Xpress solver.
 
         @param maxSeconds: the maximum time that the Optimizer will run before it terminates
-        @param targetGap: global search will terminate if: 
+        @param targetGap: global search will terminate if:
                           abs(MIPOBJVAL - BESTBOUND) <= MIPRELSTOP * BESTBOUND
         @param heurFreq: the frequency at which heuristics are used in the tree search
         @param heurStra: heuristic strategy
@@ -1420,9 +1420,13 @@ class COIN_CMD(LpSolver_CMD):
         args.append(self.path)
         args.extend(cmds[1:].split())
         cbc = subprocess.Popen(args, stdout = pipe, stderr = pipe)
+
         if cbc.wait() != 0:
             raise PulpSolverError("Pulp: Error while trying to execute " +  \
                                     self.path)
+        if pipe:
+            pipe.close()
+
         if not os.path.exists(tmpSol):
             raise PulpSolverError("Pulp: Error while executing "+self.path)
         if use_mps:
@@ -1983,6 +1987,9 @@ class GUROBI_CMD(LpSolver_CMD):
             pipe = open(os.devnull, 'w')
 
         return_code = subprocess.call(cmd.split(), stdout = pipe, stderr = pipe)
+
+        if pipe:
+            pipe.close()
 
         if return_code != 0:
             raise PulpSolverError("PuLP: Error while trying to execute "+self.path)
